@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Laporan Harian PMO & Kontraktor (Form F-14)</title>
+  
+  <!-- CSS Framework (Tailwind Standar Stable) -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+    .status-badge { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+    .bg-approved { background-color: #10b981; }
+    .bg-submitted { background-color: #3b82f6; }
+    .bg-revision { background-color: #f59e0b; }
+    .bg-overdue { background-color: #ef4444; }
+    .bg-unfilled { background-color: #9ca3af; }
+    
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background-color: white !important; }
+    }
+  </style>
+</head>
+<body class="text-gray-800">
+
+  <!-- HEADER / ROLE SWITCHER -->
+  <header class="bg-blue-900 text-white p-4 shadow-md no-print sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid font-bold fa-building-user text-2xl text-amber-400"></i>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide">PMO Report System (Form F-14)</h1>
+          <p class="text-xs text-blue-200">Aplikasi Monitoring & Input Laporan Harian Proyek Maks H+1</p>
+        </div>
+      </div>
+      
+      <!-- Toggle Role Button -->
+      <div class="bg-blue-950 p-1 rounded-lg border border-blue-700 flex">
+        <button id="btn-role-kontraktor" onclick="switchRole('kontraktor')" class="px-4 py-2 rounded-md text-sm font-semibold transition-all bg-blue-600 text-white shadow">
+          <i class="fa-solid fa-hard-hat mr-1"></i> Tampilan Kontraktor
+        </button>
+        <button id="btn-role-pmo" onclick="switchRole('pmo')" class="px-4 py-2 rounded-md text-sm font-semibold transition-all text-blue-300 hover:text-white">
+          <i class="fa-solid fa-clipboard-check mr-1"></i> Tampilan PMO
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6">
+    
+    <!-- BANNER PERINGATAN H+1 -->
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded shadow-sm flex items-start gap-3 no-print">
+      <i class="fa-solid fa-triangle-exclamation text-amber-600 text-xl mt-0.5"></i>
+      <div class="text-sm text-amber-900">
+        <span class="font-bold">Ketentuan Tenggat Waktu (SLA):</span> Laporan harian wajib dikirim oleh Kontraktor paling lambat <span class="font-bold underline">H+1 pukul 09:00 WIB</span>. Laporan yang terlewat akan ditandai <span class="text-red-600 font-bold">Merah (Overdue)</span> dan notifikasi peringatan otomatis dapat dikirim via WhatsApp.
+      </div>
+    </div>
+
+    <!-- VIEW 1: DASHBOARD PILIHAN PROYEK -->
+    <section id="view-projects" class="space-y-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-800">Pilih Proyek Konstruksi</h2>
+          <p class="text-sm text-gray-500" id="role-subtitle">Pilih proyek untuk mengelola laporan harian.</p>
+        </div>
+        <button onclick="openModalNewProject()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 shadow no-print">
+          <i class="fa-solid fa-plus"></i> Tambah Proyek Baru
+        </button>
+      </div>
+
+      <!-- GRID PROYEK -->
+      <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- VIEW 2: KALENDER PROYEK -->
+    <section id="view-calendar" class="hidden space-y-6">
+      <!-- Breadcrumb & Back -->
+      <div class="flex items-center justify-between no-print border-b pb-4">
+        <button onclick="showProjectView()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 text-sm">
+          <i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar Proyek
+        </button>
+        <span id="active-project-name" class="font-bold text-lg text-blue-900"></span>
+      </div>
+
+      <!-- Legenda Status Warna -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Status Laporan Harian (Indikator Warna)</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-sm">
+          <div class="flex items-center gap-2"><span class="status-badge bg-approved"></span> <span class="text-gray-700">🟢 Disetujui PMO</span></div>
+          <div class="flex items-center gap-2"><span class="status-badge bg-submitted"></span> <span class="text-gray-700">🔵 Terkirim (Review)</span></div>
+          <div class="flex items-center gap-2"><span class="status-badge bg-revision"></span> <span class="text-gray-700">🟠 Perlu Revisi</span></div>
+          <div class="flex items-center gap-2"><span class="status-badge bg-overdue"></span> <span class="text-gray-700">🔴 Belum Isi (H+1)</span></div>
+          <div class="flex items-center gap-2"><span class="status-badge bg-unfilled"></span> <span class="text-gray-500">⚪ Belum Waktunya</span></div>
+        </div>
+      </div>
+
+      <!-- Header Kalender -->
+      <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+        <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+          <h3 id="calendar-month-year" class="text-lg font-bold">Oktober 2026</h3>
+          <div class="text-xs bg-blue-800 px-3 py-1 rounded-full text-blue-200" id="role-calendar-badge">
+            Akses: Kontraktor
+          </div>
+        </div>
+        
+        <!-- Grid Hari -->
+        <div class="grid grid-cols-7 text-center font-bold text-xs bg-gray-100 text-gray-600 py-2 border-b">
+          <div>MIN</div><div>SEN</div><div>SEL</div><div>RAB</div><div>KAM</div><div>JUM</div><div>SAB</div>
+        </div>
+
+        <!-- Grid Tanggal (Rendered JS) -->
+        <div id="calendar-grid" class="grid grid-cols-7 gap-1 p-2 bg-gray-50">
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: FORM INPUT KONTRAKTOR -->
+    <section id="view-form-contractor" class="hidden space-y-6">
+      <div class="flex items-center justify-between no-print border-b pb-4">
+        <button onclick="showCalendarView()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 text-sm">
+          <i class="fa-solid fa-arrow-left"></i> Kembali ke Kalender
+        </button>
+        <span class="font-bold text-gray-700" id="form-date-title">Form Laporan Harian - Tanggal: -</span>
+      </div>
+
+      <form id="form-daily-report" onsubmit="submitReport(event)" class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 space-y-6">
+        <div class="border-b pb-4">
+          <h2 class="text-xl font-bold text-blue-900">Form Laporan Harian Lapangan (F-14)</h2>
+          <p class="text-sm text-gray-500">Isi data aktivitas pekerjaan proyek secara akurat.</p>
+        </div>
+
+        <!-- Informasi Dasar -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Nomor BPMPO</label>
+            <input type="text" id="input-bpmpo" required placeholder="Contoh: BPMPO/2026/088" class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Nama Paket</label>
+            <input type="text" id="input-paket" readonly class="w-full p-2 border rounded text-sm bg-gray-200 text-gray-700 font-semibold">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Kontraktor Pelaksana</label>
+            <input type="text" id="input-kontraktor" readonly class="w-full p-2 border rounded text-sm bg-gray-200 text-gray-700 font-semibold">
+          </div>
+        </div>
+
+        <!-- Cuaca 24 Jam Simpel -->
+        <div>
+          <label class="block text-sm font-bold text-gray-800 mb-2">Kondisi Cuaca Lapangan (24 Jam)</label>
+          <div class="text-xs text-gray-500 mb-2">Klik tombol untuk memilih: C (Cerah), M (Mendung), G (Gerimis), H (Hujan)</div>
+          <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2" id="weather-grid">
+            <!-- JS Weather Buttons -->
+          </div>
+        </div>
+
+        <!-- Tenaga Kerja -->
+        <div>
+          <label class="block text-sm font-bold text-gray-800 mb-2">Jumlah Tenaga Kerja (Orang)</label>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span class="text-xs text-gray-600">Project Manager / Staff</span>
+              <input type="number" min="0" id="tk-staff" value="2" class="w-full p-2 border rounded text-sm">
+            </div>
+            <div>
+              <span class="text-xs text-gray-600">Mandor</span>
+              <input type="number" min="0" id="tk-mandor" value="3" class="w-full p-2 border rounded text-sm">
+            </div>
+            <div>
+              <span class="text-xs text-gray-600">Tukang / Mekanik</span>
+              <input type="number" min="0" id="tk-tukang" value="12" class="w-full p-2 border rounded text-sm">
+            </div>
+            <div>
+              <span class="text-xs text-gray-600">Pekerja Lapangan</span>
+              <input type="number" min="0" id="tk-pekerja" value="25" class="w-full p-2 border rounded text-sm">
+            </div>
+          </div>
+        </div>
+
+        <!-- Pekerjaan (BOQ) -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-bold text-gray-800">Progres Pekerjaan Lapangan (BOQ)</label>
+            <button type="button" onclick="addBoqRow()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold hover:bg-blue-200">+ Tambah Pekerjaan</button>
+          </div>
+          <div class="space-y-2" id="boq-container">
+            <!-- Dynamic BOQ Row -->
+          </div>
+        </div>
+
+        <!-- Material (BOM) -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-bold text-gray-800">Material Masuk / Terpakai (BOM)</label>
+            <button type="button" onclick="addBomRow()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold hover:bg-blue-200">+ Tambah Material</button>
+          </div>
+          <div class="space-y-2" id="bom-container">
+            <!-- Dynamic BOM Row -->
+          </div>
+        </div>
+
+        <!-- Catatan Kendala -->
+        <div>
+          <label class="block text-sm font-bold text-gray-800 mb-1">Kendala / Catatan Lapangan</label>
+          <textarea id="input-kendala" rows="3" placeholder="Masukkan kendala cuaca, bahan, atau alat jika ada..." class="w-full p-2 border rounded text-sm"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition-all text-center">
+          <i class="fa-solid fa-paper-plane mr-2"></i> Kirim Laporan ke PMO
+        </button>
+      </form>
+    </section>
+
+    <!-- VIEW 4: PRATINJAU & REVIEW PMO -->
+    <section id="view-preview-pmo" class="hidden space-y-6">
+      <div class="flex items-center justify-between no-print border-b pb-4">
+        <button onclick="showCalendarView()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 text-sm">
+          <i class="fa-solid fa-arrow-left"></i> Kembali ke Kalender
+        </button>
+        <div class="flex gap-2">
+          <button onclick="window.print()" class="bg-gray-700 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-800">
+            <i class="fa-solid fa-print mr-1"></i> Cetak / PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- LEMBARAN F-14 PRINT-READY -->
+      <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-300 max-w-4xl mx-auto space-y-6 text-sm" id="printable-sheet">
+        <!-- Header Lembaran -->
+        <div class="border-b-2 border-black pb-4 text-center">
+          <h2 class="text-xl font-bold uppercase tracking-wider">Laporan Harian (Daily Activity Report)</h2>
+          <p class="text-xs text-gray-600 font-mono">Kode Form: AAA/CONS/FM-014 Rev01 | Tgl Berlaku: 14 Juli 2025</p>
+        </div>
+
+        <!-- Metadata -->
+        <div class="grid grid-cols-2 gap-4 text-xs border-b pb-4">
+          <div>
+            <p><span class="font-bold">NOMOR BPMPO:</span> <span id="pv-bpmpo">-</span></p>
+            <p><span class="font-bold">NAMA PAKET:</span> <span id="pv-paket">-</span></p>
+            <p><span class="font-bold">KONTRAKTOR:</span> <span id="pv-kontraktor">-</span></p>
+          </div>
+          <div class="text-right">
+            <p><span class="font-bold">TANGGAL PELAKSANAAN:</span> <span id="pv-tanggal" class="text-blue-900 font-bold">-</span></p>
+            <p><span class="font-bold">STATUS LAPORAN:</span> <span id="pv-status-badge" class="font-bold text-blue-600">-</span></p>
+          </div>
+        </div>
+
+        <!-- Tabel Tenaga Kerja -->
+        <div>
+          <h4 class="font-bold text-xs uppercase mb-1 bg-gray-100 p-1 border">I. Tenaga Kerja Lapangan</h4>
+          <p class="text-xs text-gray-700" id="pv-tenaga-kerja">-</p>
+        </div>
+
+        <!-- Tabel BOQ -->
+        <div>
+          <h4 class="font-bold text-xs uppercase mb-1 bg-gray-100 p-1 border">II. Progres Pekerjaan (BOQ)</h4>
+          <table class="w-full text-xs border-collapse border border-gray-300">
+            <thead>
+              <tr class="bg-gray-200 text-left">
+                <th class="border p-1">Kode</th>
+                <th class="border p-1">Deskripsi Pekerjaan</th>
+                <th class="border p-1 text-center">Satuan</th>
+                <th class="border p-1 text-right">Volume</th>
+              </tr>
+            </thead>
+            <tbody id="pv-boq-body">
+              <!-- JS Render -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tabel BOM -->
+        <div>
+          <h4 class="font-bold text-xs uppercase mb-1 bg-gray-100 p-1 border">III. Penerimaan / Penggunaan Material (BOM)</h4>
+          <table class="w-full text-xs border-collapse border border-gray-300">
+            <thead>
+              <tr class="bg-gray-200 text-left">
+                <th class="border p-1">Kode</th>
+                <th class="border p-1">Jenis Material</th>
+                <th class="border p-1 text-center">Satuan</th>
+                <th class="border p-1 text-right">Volume</th>
+              </tr>
+            </thead>
+            <tbody id="pv-bom-body">
+              <!-- JS Render -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Kendala -->
+        <div>
+          <h4 class="font-bold text-xs uppercase mb-1 bg-gray-100 p-1 border">IV. Kendala / Catatan Lapangan</h4>
+          <p class="text-xs text-gray-700 italic border p-2 bg-gray-50" id="pv-kendala">-</p>
+        </div>
+
+        <!-- Tanda Tangan Otorisasi -->
+        <div class="grid grid-cols-3 text-center text-xs pt-8 border-t gap-2">
+          <div>
+            <p class="font-bold">Project Manager Kontraktor</p>
+            <div class="h-16 flex items-end justify-center font-bold text-blue-900">( PT Mandiri )</div>
+          </div>
+          <div>
+            <p class="font-bold">Konsultan Supervisi</p>
+            <div class="h-16 flex items-end justify-center font-bold text-gray-600">( PT Keyla Konsultan )</div>
+          </div>
+          <div>
+            <p class="font-bold">Tim PMO / Direksi</p>
+            <div class="h-16 flex items-end justify-center font-bold text-green-700" id="pv-pmo-sign">( Menunggu Approval )</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL AKSI PMO (Hanya muncul untuk role PMO) -->
+      <div id="pmo-action-panel" class="bg-white p-6 rounded-xl shadow border border-gray-200 max-w-4xl mx-auto space-y-4 no-print">
+        <h3 class="font-bold text-gray-800 border-b pb-2"><i class="fa-solid fa-user-gear text-blue-600 mr-2"></i> Panel Keputusan Tim PMO</h3>
+        
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Catatan Revisi / Masukan PMO</label>
+          <textarea id="pmo-revision-note" rows="2" placeholder="Tuliskan catatan perbaikan jika laporan dikembalikan ke kontraktor..." class="w-full p-2 border rounded text-sm"></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button onclick="approveReportByPMO()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-lg text-sm shadow">
+            <i class="fa-solid fa-circle-check mr-1"></i> Setujui Laporan (Approve)
+          </button>
+          <button onclick="requestRevisionByPMO()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg text-sm shadow">
+            <i class="fa-solid fa-rotate-left mr-1"></i> Minta Revisi Laporan
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL TAMBAH PROYEK BARU -->
+  <div id="modal-project" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50 no-print">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-lg text-gray-800">Tambah Proyek Baru</h3>
+        <button onclick="closeModalNewProject()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1">Nama Paket Proyek</label>
+          <input type="text" id="new-proj-name" placeholder="Contoh: Pembangunan Pipa Transmisi" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1">Nama Kontraktor</label>
+          <input type="text" id="new-proj-contractor" placeholder="Contoh: PT Mandiri Utama" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1">No. WhatsApp Kontraktor (Pengingat)</label>
+          <input type="text" id="new-proj-phone" placeholder="628123456789" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1">Lokasi Proyek</label>
+          <input type="text" id="new-proj-location" placeholder="Subang, Jawa Barat" class="w-full p-2 border rounded text-sm">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 border-t">
+        <button onclick="closeModalNewProject()" class="px-4 py-2 border rounded text-sm font-semibold">Batal</button>
+        <button onclick="saveNewProject()" class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700">Simpan Proyek</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APP LOGIC -->
+  <script>
+    // DATA STORE
+    let currentRole = 'kontraktor'; // 'kontraktor' or 'pmo'
+    let selectedProjectId = null;
+    let selectedDateStr = null;
+
+    let projects = [
+      {
+        id: 'PRJ-01',
+        name: 'Pemasangan Pipa Transmisi Air Baku Unit Prasedimentasi',
+        contractor: 'PT Mandiri Utama',
+        phone: '6281234567890',
+        location: 'Area Subang, Jawa Barat',
+        progress: 68
+      },
+      {
+        id: 'PRJ-02',
+        name: 'Konstruksi Gedung Pompa & Reservoir Utama',
+        contractor: 'PT Wijaya Raya',
+        phone: '6289876543210',
+        location: 'Kawasan Industri Cikarang',
+        progress: 42
+      }
+    ];
+
+    // Dummy Database Laporan Harian [project_id][YYYY-MM-DD]
+    let reports = {
+      'PRJ-01': {
+        '2026-10-20': { status: 'approved', bpmpo: 'BPMPO/2026/010', tk: 'Staff:2, Mandor:3, Tukang:10, Pekerja:20', boq: [{kode:'BOQ-01', desc:'Penggalian Tanah', unit:'m3', vol:'120'}], bom: [{kode:'BOM-01', desc:'Pipa HDPE 500mm', unit:'Batang', vol:'15'}], kendala: 'Nihil' },
+        '2026-10-21': { status: 'submitted', bpmpo: 'BPMPO/2026/011', tk: 'Staff:2, Mandor:3, Tukang:12, Pekerja:22', boq: [{kode:'BOQ-02', desc:'Pemasangan Pipa', unit:'m', vol:'80'}], bom: [{kode:'BOM-01', desc:'Pipa HDPE 500mm', unit:'Batang', vol:'10'}], kendala: 'Gerimis sore hari' },
+        '2026-10-22': { status: 'revision', bpmpo: 'BPMPO/2026/012', tk: 'Staff:2, Mandor:2, Tukang:8, Pekerja:15', boq: [{kode:'BOQ-02', desc:'Pemasangan Pipa', unit:'m', vol:'40'}], bom: [], kendala: 'Semen kurang', revisionNote: 'Mohon lampirkan volume BOM material yang digunakan.' }
+      }
+    };
+
+    // INIT APP
+    window.onload = function() {
+      renderProjects();
+      renderWeatherGrid();
+    };
+
+    // ROLE SWITCHING
+    function switchRole(role) {
+      currentRole = role;
+      
+      const btnKontraktor = document.getElementById('btn-role-kontraktor');
+      const btnPmo = document.getElementById('btn-role-pmo');
+      const roleSubtitle = document.getElementById('role-subtitle');
+      const roleCalBadge = document.getElementById('role-calendar-badge');
+
+      if(role === 'kontraktor') {
+        btnKontraktor.className = 'px-4 py-2 rounded-md text-sm font-semibold transition-all bg-blue-600 text-white shadow';
+        btnPmo.className = 'px-4 py-2 rounded-md text-sm font-semibold transition-all text-blue-300 hover:text-white';
+        roleSubtitle.innerText = 'Tampilan Kontraktor: Pilih proyek untuk mengisi Form F-14 Laporan Harian.';
+        roleCalBadge.innerText = 'Mode Akses: Kontraktor Lapangan';
+        document.getElementById('pmo-action-panel').classList.add('hidden');
+      } else {
+        btnPmo.className = 'px-4 py-2 rounded-md text-sm font-semibold transition-all bg-blue-600 text-white shadow';
+        btnKontraktor.className = 'px-4 py-2 rounded-md text-sm font-semibold transition-all text-blue-300 hover:text-white';
+        roleSubtitle.innerText = 'Tampilan PMO: Monitor kepatuhan laporan kontraktor dan verifikasi dokumen.';
+        roleCalBadge.innerText = 'Mode Akses: Tim PMO / Konsultan';
+        document.getElementById('pmo-action-panel').classList.remove('hidden');
+      }
+
+      if(selectedProjectId) {
+        renderCalendar();
+      }
+    }
+
+    // RENDER PROJECTS
+    function renderProjects() {
+      const listContainer = document.getElementById('project-list');
+      listContainer.innerHTML = '';
+
+      projects.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-xl shadow border border-gray-200 p-5 space-y-4 hover:shadow-md transition-all';
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <span class="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full">${p.id}</span>
+            <span class="text-xs text-gray-500 font-semibold">Progres: ${p.progress}%</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-800 text-base leading-snug">${p.name}</h3>
+            <p class="text-xs text-gray-500 mt-1"><i class="fa-solid fa-hard-hat text-amber-500 mr-1"></i> ${p.contractor}</p>
+            <p class="text-xs text-gray-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${p.location}</p>
+          </div>
+          <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+            <div class="bg-blue-600 h-2" style="width: ${p.progress}%"></div>
+          </div>
+          <button onclick="selectProject('${p.id}')" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2 rounded-lg text-sm transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-calendar-days"></i> Buka Kalender Laporan
+          </button>
+        `;
+        listContainer.appendChild(card);
+      });
+    }
+
+    function selectProject(id) {
+      selectedProjectId = id;
+      const proj = projects.find(p => p.id === id);
+      document.getElementById('active-project-name').innerText = proj.name;
+      
+      document.getElementById('view-projects').classList.add('hidden');
+      document.getElementById('view-calendar').classList.remove('hidden');
+      
+      renderCalendar();
+    }
+
+    function showProjectView() {
+      document.getElementById('view-projects').classList.remove('hidden');
+      document.getElementById('view-calendar').classList.add('hidden');
+      document.getElementById('view-form-contractor').classList.add('hidden');
+      document.getElementById('view-preview-pmo').classList.add('hidden');
+    }
+
+    function showCalendarView() {
+      document.getElementById('view-calendar').classList.remove('hidden');
+      document.getElementById('view-form-contractor').classList.add('hidden');
+      document.getElementById('view-preview-pmo').classList.add('hidden');
+      renderCalendar();
+    }
+
+    // CALENDAR RENDER
+    function renderCalendar() {
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      // Dummy Render 31 Hari untuk Oktober 2026
+      const projReports = reports[selectedProjectId] || {};
+
+      for(let day = 1; day <= 31; day++) {
+        const dateStr = `2026-10-${day < 10 ? '0' + day : day}`;
+        const rep = projReports[dateStr];
+        
+        let statusClass = 'bg-white border-gray-200';
+        let badgeColor = 'bg-unfilled';
+        let statusText = 'Belum Isi';
+
+        if (day > 23) {
+          // Masa depan
+          statusClass = 'bg-gray-100 text-gray-400';
+          statusText = 'Future';
+        } else if (rep) {
+          if (rep.status === 'approved') { badgeColor = 'bg-approved'; statusText = 'Disetujui'; }
+          else if (rep.status === 'submitted') { badgeColor = 'bg-submitted'; statusText = 'Terkirim'; }
+          else if (rep.status === 'revision') { badgeColor = 'bg-revision'; statusText = 'Revisi'; }
+        } else if (day < 23) {
+          // Overdue
+          badgeColor = 'bg-overdue';
+          statusText = 'Terlewat (H+1)';
+        }
+
+        const cell = document.createElement('div');
+        cell.className = `min-h-24 p-2 rounded-lg border flex flex-col justify-between cursor-pointer hover:shadow-md transition-all ${statusClass}`;
+        cell.onclick = () => handleDateClick(dateStr, rep);
+
+        cell.innerHTML = `
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-sm text-gray-700">${day}</span>
+            <span class="status-badge ${badgeColor}"></span>
+          </div>
+          <div class="text-[10px] font-semibold text-gray-500 mt-2">${statusText}</div>
+          ${currentRole === 'pmo' && badgeColor === 'bg-overdue' ? `
+            <button onclick="sendWaReminder(event, '${dateStr}')" class="mt-1 bg-green-500 hover:bg-green-600 text-white text-[10px] py-1 px-1 rounded flex items-center justify-center gap-1">
+              <i class="fa-brands fa-whatsapp"></i> Ingatkan
+            </button>
+          ` : ''}
+        `;
+
+        grid.appendChild(cell);
+      }
+    }
+
+    // CLICK DATE HANDLER
+    function handleDateClick(dateStr, existingReport) {
+      selectedDateStr = dateStr;
+      const proj = projects.find(p => p.id === selectedProjectId);
+
+      if (currentRole === 'kontraktor') {
+        // Mode Kontraktor: Buka Form Input
+        document.getElementById('form-date-title').innerText = `Form Laporan Harian - Tanggal: ${dateStr}`;
+        document.getElementById('input-paket').value = proj.name;
+        document.getElementById('input-kontraktor').value = proj.contractor;
+        document.getElementById('input-bpmpo').value = existingReport ? existingReport.bpmpo : `BPMPO/2026/${dateStr.split('-')[2]}`;
+        
+        // Reset BOQ & BOM
+        document.getElementById('boq-container').innerHTML = '';
+        document.getElementById('bom-container').innerHTML = '';
+        addBoqRow();
+        addBomRow();
+
+        document.getElementById('view-calendar').classList.add('hidden');
+        document.getElementById('view-form-contractor').classList.remove('hidden');
+      } else {
+        // Mode PMO: Buka Pratinjau Sheet
+        if(!existingReport && new Date(dateStr) < new Date('2026-10-23')) {
+          alert('Kontraktor belum mengisi laporan harian untuk tanggal ini. Anda dapat mengirimkan pengingat WhatsApp.');
+          return;
+        }
+
+        document.getElementById('pv-bpmpo').innerText = existingReport ? existingReport.bpmpo : 'BPMPO/2026/NEW';
+        document.getElementById('pv-paket').innerText = proj.name;
+        document.getElementById('pv-kontraktor').innerText = proj.contractor;
+        document.getElementById('pv-tanggal').innerText = dateStr;
+        document.getElementById('pv-status-badge').innerText = existingReport ? existingReport.status.toUpperCase() : 'BELUM DILAPORKAN';
+        document.getElementById('pv-tenaga-kerja').innerText = existingReport ? existingReport.tk : 'Staff: 2, Mandor: 3, Tukang: 10, Pekerja: 20';
+        document.getElementById('pv-kendala').innerText = existingReport ? existingReport.kendala : '-';
+
+        // Render BOQ Preview
+        const boqBody = document.getElementById('pv-boq-body');
+        boqBody.innerHTML = '';
+        const items = existingReport ? existingReport.boq : [{kode:'BOQ-01', desc:'Pekerjaan Persiapan & Galian', unit:'m3', vol:'50'}];
+        items.forEach(i => {
+          boqBody.innerHTML += `<tr><td class="border p-1">${i.kode}</td><td class="border p-1">${i.desc}</td><td class="border p-1 text-center">${i.unit}</td><td class="border p-1 text-right">${i.vol}</td></tr>`;
+        });
+
+        // Render BOM Preview
+        const bomBody = document.getElementById('pv-bom-body');
+        bomBody.innerHTML = '';
+        const bitems = existingReport ? existingReport.bom : [{kode:'BOM-01', desc:'Semen Portland', unit:'Sak', vol:'30'}];
+        bitems.forEach(i => {
+          bomBody.innerHTML += `<tr><td class="border p-1">${i.kode}</td><td class="border p-1">${i.desc}</td><td class="border p-1 text-center">${i.unit}</td><td class="border p-1 text-right">${i.vol}</td></tr>`;
+        });
+
+        document.getElementById('view-calendar').classList.add('hidden');
+        document.getElementById('view-preview-pmo').classList.remove('hidden');
+      }
+    }
+
+    // WEATHER GRID GENERATOR
+    function renderWeatherGrid() {
+      const container = document.getElementById('weather-grid');
+      container.innerHTML = '';
+      for(let h=1; h<=24; h++) {
+        const jam = h < 10 ? '0'+h : h;
+        container.innerHTML += `
+          <div class="text-center bg-gray-50 border rounded p-1">
+            <span class="block text-[10px] font-bold text-gray-500">${jam}:00</span>
+            <select class="w-full text-xs font-bold border-0 bg-transparent text-center focus:ring-0">
+              <option value="C">C</option>
+              <option value="M">M</option>
+              <option value="G">G</option>
+              <option value="H">H</option>
+            </select>
+          </div>
+        `;
+      }
+    }
+
+    // DYNAMIC ROWS
+    function addBoqRow() {
+      const container = document.getElementById('boq-container');
+      const div = document.createElement('div');
+      div.className = 'grid grid-cols-12 gap-2 items-center';
+      div.innerHTML = `
+        <input type="text" placeholder="Kode BOQ" class="col-span-3 p-2 border rounded text-xs">
+        <input type="text" placeholder="Deskripsi Pekerjaan" class="col-span-5 p-2 border rounded text-xs">
+        <input type="text" placeholder="Satuan" class="col-span-2 p-2 border rounded text-xs">
+        <input type="number" placeholder="Vol" class="col-span-2 p-2 border rounded text-xs">
+      `;
+      container.appendChild(div);
+    }
+
+    function addBomRow() {
+      const container = document.getElementById('bom-container');
+      const div = document.createElement('div');
+      div.className = 'grid grid-cols-12 gap-2 items-center';
+      div.innerHTML = `
+        <input type="text" placeholder="Kode BOM" class="col-span-3 p-2 border rounded text-xs">
+        <input type="text" placeholder="Jenis Material" class="col-span-5 p-2 border rounded text-xs">
+        <input type="text" placeholder="Satuan" class="col-span-2 p-2 border rounded text-xs">
+        <input type="number" placeholder="Vol" class="col-span-2 p-2 border rounded text-xs">
+      `;
+      container.appendChild(div);
+    }
+
+    // SUBMIT REPORT (KONTRAKTOR)
+    function submitReport(e) {
+      e.preventDefault();
+      if (!reports[selectedProjectId]) reports[selectedProjectId] = {};
+
+      reports[selectedProjectId][selectedDateStr] = {
+        status: 'submitted',
+        bpmpo: document.getElementById('input-bpmpo').value,
+        tk: `Staff:${document.getElementById('tk-staff').value}, Mandor:${document.getElementById('tk-mandor').value}, Tukang:${document.getElementById('tk-tukang').value}`,
+        boq: [{kode:'BOQ-01', desc:'Pekerjaan Lapangan', unit:'ls', vol:'1'}],
+        bom: [{kode:'BOM-01', desc:'Material Terpakai', unit:'ls', vol:'1'}],
+        kendala: document.getElementById('input-kendala').value
+      };
+
+      alert('Laporan harian berhasil dikirim ke Tim PMO!');
+      showCalendarView();
+    }
+
+    // PMO ACTIONS
+    function approveReportByPMO() {
+      if(!reports[selectedProjectId]) reports[selectedProjectId] = {};
+      if(!reports[selectedProjectId][selectedDateStr]) {
+        reports[selectedProjectId][selectedDateStr] = { status: 'approved', bpmpo: 'BPMPO/AUTO', tk: 'Staff: 2', boq: [], bom: [], kendala: '-' };
+      } else {
+        reports[selectedProjectId][selectedDateStr].status = 'approved';
+      }
+      alert('Laporan Harian DISETUJUI!');
+      showCalendarView();
+    }
+
+    function requestRevisionByPMO() {
+      const note = document.getElementById('pmo-revision-note').value;
+      if(!note) { alert('Harap isi catatan revisi terlebih dahulu!'); return; }
+      
+      if(!reports[selectedProjectId]) reports[selectedProjectId] = {};
+      if(!reports[selectedProjectId][selectedDateStr]) {
+        reports[selectedProjectId][selectedDateStr] = { status: 'revision', revisionNote: note };
+      } else {
+        reports[selectedProjectId][selectedDateStr].status = 'revision';
+        reports[selectedProjectId][selectedDateStr].revisionNote = note;
+      }
+      alert('Laporan dikembalikan ke Kontraktor untuk REVISI.');
+      showCalendarView();
+    }
+
+    // WA REMINDER
+    function sendWaReminder(e, dateStr) {
+      e.stopPropagation();
+      const proj = projects.find(p => p.id === selectedProjectId);
+      const text = encodeURIComponent(`Halo Tim ${proj.contractor}, mohon segera mengisi Laporan Harian Form F-14 untuk proyek "${proj.name}" tanggal ${dateStr}. Terima Kasih (Tim PMO).`);
+      window.open(`https://wa.me/${proj.phone}?text=${text}`, '_blank');
+    }
+
+    // MODAL PROJECT
+    function openModalNewProject() { document.getElementById('modal-project').classList.remove('hidden'); document.getElementById('modal-project').classList.add('flex'); }
+    function closeModalNewProject() { document.getElementById('modal-project').classList.add('hidden'); document.getElementById('modal-project').classList.remove('flex'); }
+    
+    function saveNewProject() {
+      const name = document.getElementById('new-proj-name').value;
+      const contractor = document.getElementById('new-proj-contractor').value;
+      const phone = document.getElementById('new-proj-phone').value;
+      const location = document.getElementById('new-proj-location').value;
+
+      if(!name || !contractor) { alert('Mohon isi nama proyek dan kontraktor!'); return; }
+
+      const newId = `PRJ-0${projects.length + 1}`;
+      projects.push({ id: newId, name, contractor, phone, location, progress: 0 });
+      
+      closeModalNewProject();
+      renderProjects();
+      alert('Proyek baru berhasil ditambahkan!');
+    }
+  </script>
+</body>
+</html>
